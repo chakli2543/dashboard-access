@@ -17,11 +17,8 @@ firebase.initializeApp(firebaseConfig);
 const db   = firebase.database();
 const auth = firebase.auth();
 
-// 🔐 Force login every time (NO session saved)
-auth.setPersistence(firebase.auth.Auth.Persistence.NONE);
-
 // ============================================================
-// ✅ LOGIN / AUTH (ADDED)
+// LOGIN / AUTH
 // ============================================================
 const loginOverlay  = document.getElementById("loginOverlay");
 const mainContent   = document.getElementById("mainContent");
@@ -33,19 +30,22 @@ const loginPassword = document.getElementById("loginPassword");
 const loginError    = document.getElementById("loginError");
 const logoutBtn     = document.getElementById("logoutBtn");
 
-// Watch auth state — auto show/hide login screen
+// 🔴 ALWAYS FORCE LOGIN (NO AUTO SESSION)
 auth.onAuthStateChanged(function(user) {
+
     if (user) {
-        loginOverlay.style.display = "none";
-        mainContent.style.display  = "block";
-        initDashboard();
-    } else {
-        loginOverlay.style.display = "flex";
-        mainContent.style.display  = "none";
+        auth.signOut(); // force logout
+        return;
     }
+
+    // Always show login first
+    loginOverlay.style.display = "flex";
+    mainContent.style.display  = "none";
 });
 
-// Login button
+// ============================================================
+// LOGIN BUTTON
+// ============================================================
 loginBtn.addEventListener("click", function() {
     const email    = loginEmail.value.trim();
     const password = loginPassword.value.trim();
@@ -61,6 +61,12 @@ loginBtn.addEventListener("click", function() {
     loginBtn.disabled             = true;
 
     auth.signInWithEmailAndPassword(email, password)
+        .then(() => {
+            // ✅ Show dashboard ONLY after login
+            loginOverlay.style.display = "none";
+            mainContent.style.display  = "block";
+            initDashboard();
+        })
         .catch(function(err) {
             loginError.textContent     = getFriendlyError(err.code);
             loginBtnText.textContent   = "Login";
@@ -69,7 +75,7 @@ loginBtn.addEventListener("click", function() {
         });
 });
 
-// Press Enter in password field to login
+// Enter key support
 loginPassword.addEventListener("keydown", function(e) {
     if (e.key === "Enter") loginBtn.click();
 });
@@ -78,9 +84,10 @@ loginPassword.addEventListener("keydown", function(e) {
 logoutBtn.addEventListener("click", function(e) {
     e.preventDefault();
     auth.signOut();
+    location.reload(); // ensure reset
 });
 
-// Friendly error messages
+// Friendly errors
 function getFriendlyError(code) {
     switch (code) {
         case "auth/invalid-email":          return "Invalid email address.";
@@ -94,7 +101,7 @@ function getFriendlyError(code) {
 }
 
 // ============================================================
-// DASHBOARD LOGIC — runs only after successful login (UNCHANGED)
+// DASHBOARD LOGIC (UNCHANGED)
 // ============================================================
 function initDashboard() {
 
@@ -105,9 +112,7 @@ function initDashboard() {
 
     const devices = ["fan", "light", "conveyor", "plug"];
 
-    // ----------------------
     // CONTROL → FIREBASE
-    // ----------------------
     toggleInputs.forEach((input, index) => {
         input.addEventListener('change', function() {
             const card   = controlCards[index];
@@ -126,9 +131,7 @@ function initDashboard() {
         });
     });
 
-    // ----------------------
     // FIREBASE → UI
-    // ----------------------
     devices.forEach(device => {
         db.ref("/" + device).on("value", snapshot => {
             const value = snapshot.val();
@@ -144,9 +147,7 @@ function initDashboard() {
         });
     });
 
-    // ----------------------
     // SENSOR DATA
-    // ----------------------
     db.ref("/sensor").on("value", snapshot => {
         const data = snapshot.val();
         if (!data) return;
@@ -154,9 +155,7 @@ function initDashboard() {
         document.getElementById("humidity").textContent = data.humidity + "%";
     });
 
-    // ----------------------
     // POWER OFF ALL
-    // ----------------------
     powerOffBtn.addEventListener('click', function() {
         const updates = {
             "/fan": 0, "/light": 0, "/conveyor": 0, "/plug": 0
@@ -173,9 +172,7 @@ function initDashboard() {
         showToast("All equipment powered OFF", "warning");
     });
 
-    // ----------------------
     // CONTACT FORM
-    // ----------------------
     const contactForm = document.querySelector('.contact-form');
     contactForm.addEventListener('submit', function(e) {
         e.preventDefault();
@@ -188,16 +185,12 @@ function initDashboard() {
         }
     });
 
-    // ----------------------
     // FORCE SHOW SECTIONS
-    // ----------------------
     document.querySelectorAll("section").forEach(sec => {
         sec.classList.add("visible");
     });
 
-    // ----------------------
     // TOAST FUNCTION
-    // ----------------------
     function showToast(message, type = "info") {
         const toast = document.createElement("div");
         toast.className   = "toast " + type;
