@@ -17,6 +17,9 @@ firebase.initializeApp(firebaseConfig);
 const db   = firebase.database();
 const auth = firebase.auth();
 
+// 🔑 FLAG to control first load
+let firstLoad = true;
+
 // ============================================================
 // LOGIN / AUTH
 // ============================================================
@@ -30,17 +33,30 @@ const loginPassword = document.getElementById("loginPassword");
 const loginError    = document.getElementById("loginError");
 const logoutBtn     = document.getElementById("logoutBtn");
 
-// 🔴 ALWAYS FORCE LOGIN (NO AUTO SESSION)
+// ============================================================
+// AUTH STATE HANDLER
+// ============================================================
 auth.onAuthStateChanged(function(user) {
 
-    if (user) {
-        auth.signOut(); // force logout
+    // 🔴 Force logout ONLY on first load
+    if (firstLoad && user) {
+        firstLoad = false;
+        auth.signOut();
         return;
     }
 
-    // Always show login first
-    loginOverlay.style.display = "flex";
-    mainContent.style.display  = "none";
+    firstLoad = false;
+
+    if (user) {
+        // ✅ After successful login
+        loginOverlay.style.display = "none";
+        mainContent.style.display  = "block";
+        initDashboard();
+    } else {
+        // 🔐 Show login screen
+        loginOverlay.style.display = "flex";
+        mainContent.style.display  = "none";
+    }
 });
 
 // ============================================================
@@ -61,12 +77,6 @@ loginBtn.addEventListener("click", function() {
     loginBtn.disabled             = true;
 
     auth.signInWithEmailAndPassword(email, password)
-        .then(() => {
-            // ✅ Show dashboard ONLY after login
-            loginOverlay.style.display = "none";
-            mainContent.style.display  = "block";
-            initDashboard();
-        })
         .catch(function(err) {
             loginError.textContent     = getFriendlyError(err.code);
             loginBtnText.textContent   = "Login";
@@ -75,7 +85,7 @@ loginBtn.addEventListener("click", function() {
         });
 });
 
-// Enter key support
+// Enter key login
 loginPassword.addEventListener("keydown", function(e) {
     if (e.key === "Enter") loginBtn.click();
 });
@@ -84,10 +94,11 @@ loginPassword.addEventListener("keydown", function(e) {
 logoutBtn.addEventListener("click", function(e) {
     e.preventDefault();
     auth.signOut();
-    location.reload(); // ensure reset
 });
 
-// Friendly errors
+// ============================================================
+// ERROR HANDLER
+// ============================================================
 function getFriendlyError(code) {
     switch (code) {
         case "auth/invalid-email":          return "Invalid email address.";
@@ -190,7 +201,7 @@ function initDashboard() {
         sec.classList.add("visible");
     });
 
-    // TOAST FUNCTION
+    // TOAST
     function showToast(message, type = "info") {
         const toast = document.createElement("div");
         toast.className   = "toast " + type;
