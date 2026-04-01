@@ -17,6 +17,9 @@ firebase.initializeApp(firebaseConfig);
 const db   = firebase.database();
 const auth = firebase.auth();
 
+// 🔐 Force login every time (NO session saved)
+auth.setPersistence(firebase.auth.Auth.Persistence.NONE);
+
 // ============================================================
 // ✅ LOGIN / AUTH (ADDED)
 // ============================================================
