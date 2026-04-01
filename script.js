@@ -119,7 +119,7 @@ function initDashboard() {
     const toastContainer = document.getElementById('toastContainer');
     const powerOffBtn = document.getElementById('powerOffBtn');
 
-    const devices = ["fan", "light", "conveyor", "plug"];
+    const devices = ["fan", "light", "conveyor", "buzzer"];
 
     // CONTROL → FIREBASE
     toggleInputs.forEach((input, index) => {
@@ -167,7 +167,7 @@ function initDashboard() {
     // POWER OFF ALL
     powerOffBtn.addEventListener('click', function() {
         const updates = {
-            "/fan": 0, "/light": 0, "/conveyor": 0, "/plug": 0
+            "/fan": 0, "/light": 0, "/conveyor": 0, "/buzzer": 0
         };
         db.ref().update(updates);
 
