@@ -17,11 +17,11 @@ firebase.initializeApp(firebaseConfig);
 const db   = firebase.database();
 const auth = firebase.auth();
 
-// 🔑 FLAG to control first load
-let firstLoad = true;
+// ✅ Use SESSION persistence (prevents weird caching bugs)
+auth.setPersistence(firebase.auth.Auth.Persistence.SESSION);
 
 // ============================================================
-// LOGIN / AUTH
+// LOGIN / AUTH ELEMENTS
 // ============================================================
 const loginOverlay  = document.getElementById("loginOverlay");
 const mainContent   = document.getElementById("mainContent");
@@ -34,33 +34,24 @@ const loginError    = document.getElementById("loginError");
 const logoutBtn     = document.getElementById("logoutBtn");
 
 // ============================================================
-// AUTH STATE HANDLER
+// AUTH STATE HANDLER (CLEAN + STABLE)
 // ============================================================
 auth.onAuthStateChanged(function(user) {
 
-    // 🔴 Force logout ONLY on first load
-    if (firstLoad && user) {
-        firstLoad = false;
-        auth.signOut();
-        return;
-    }
-
-    firstLoad = false;
-
     if (user) {
-        // ✅ After successful login
+        // ✅ User logged in → show dashboard
         loginOverlay.style.display = "none";
         mainContent.style.display  = "block";
         initDashboard();
     } else {
-        // 🔐 Show login screen
+        // 🔐 Not logged in → show login
         loginOverlay.style.display = "flex";
         mainContent.style.display  = "none";
     }
 });
 
 // ============================================================
-// LOGIN BUTTON
+// LOGIN BUTTON (FIXED SPINNER ISSUE)
 // ============================================================
 loginBtn.addEventListener("click", function() {
     const email    = loginEmail.value.trim();
@@ -72,11 +63,18 @@ loginBtn.addEventListener("click", function() {
         return;
     }
 
+    // Start loading
     loginBtnText.textContent      = "Signing in...";
     loginSpinner.style.display    = "inline-block";
     loginBtn.disabled             = true;
 
     auth.signInWithEmailAndPassword(email, password)
+        .then(() => {
+            // ✅ Reset button after success
+            loginBtnText.textContent   = "Login";
+            loginSpinner.style.display = "none";
+            loginBtn.disabled          = false;
+        })
         .catch(function(err) {
             loginError.textContent     = getFriendlyError(err.code);
             loginBtnText.textContent   = "Login";
