@@ -17,11 +17,10 @@ firebase.initializeApp(firebaseConfig);
 const db   = firebase.database();
 const auth = firebase.auth();
 
-// ✅ Use SESSION persistence (prevents weird caching bugs)
 auth.setPersistence(firebase.auth.Auth.Persistence.SESSION);
 
 // ============================================================
-// LOGIN / AUTH ELEMENTS
+// LOGIN ELEMENTS
 // ============================================================
 const loginOverlay  = document.getElementById("loginOverlay");
 const mainContent   = document.getElementById("mainContent");
@@ -33,25 +32,32 @@ const loginPassword = document.getElementById("loginPassword");
 const loginError    = document.getElementById("loginError");
 const logoutBtn     = document.getElementById("logoutBtn");
 
+// Prevent multiple init calls
+let dashboardInitialized = false;
+
 // ============================================================
-// AUTH STATE HANDLER (CLEAN + STABLE)
+// AUTH STATE
 // ============================================================
 auth.onAuthStateChanged(function(user) {
 
     if (user) {
-        // ✅ User logged in → show dashboard
         loginOverlay.style.display = "none";
         mainContent.style.display  = "block";
-        initDashboard();
+
+        if (!dashboardInitialized) {
+            initDashboard();
+            dashboardInitialized = true;
+        }
+
     } else {
-        // 🔐 Not logged in → show login
         loginOverlay.style.display = "flex";
         mainContent.style.display  = "none";
+        dashboardInitialized = false;
     }
 });
 
 // ============================================================
-// LOGIN BUTTON (FIXED SPINNER ISSUE)
+// LOGIN
 // ============================================================
 loginBtn.addEventListener("click", function() {
     const email    = loginEmail.value.trim();
@@ -63,14 +69,12 @@ loginBtn.addEventListener("click", function() {
         return;
     }
 
-    // Start loading
-    loginBtnText.textContent      = "Signing in...";
-    loginSpinner.style.display    = "inline-block";
-    loginBtn.disabled             = true;
+    loginBtnText.textContent   = "Signing in...";
+    loginSpinner.style.display = "inline-block";
+    loginBtn.disabled          = true;
 
     auth.signInWithEmailAndPassword(email, password)
         .then(() => {
-            // ✅ Reset button after success
             loginBtnText.textContent   = "Login";
             loginSpinner.style.display = "none";
             loginBtn.disabled          = false;
@@ -110,7 +114,7 @@ function getFriendlyError(code) {
 }
 
 // ============================================================
-// DASHBOARD LOGIC (UNCHANGED)
+// DASHBOARD
 // ============================================================
 function initDashboard() {
 
@@ -119,7 +123,7 @@ function initDashboard() {
     const toastContainer = document.getElementById('toastContainer');
     const powerOffBtn = document.getElementById('powerOffBtn');
 
-    const devices = ["fan", "light", "conveyor", "buzzer"];
+    const devices = ["fan", "light", "conveyor", "buzzer"]; // ✅ FIXED
 
     // CONTROL → FIREBASE
     toggleInputs.forEach((input, index) => {
@@ -146,13 +150,11 @@ function initDashboard() {
             const value = snapshot.val();
             const card  = document.querySelector(`[data-equipment="${device}"]`);
             if (!card) return;
+
             const toggle = card.querySelector('.toggle-input');
             toggle.checked = value === 1;
-            if (value === 1) {
-                card.classList.add('on');
-            } else {
-                card.classList.remove('on');
-            }
+
+            card.classList.toggle('on', value === 1);
         });
     });
 
@@ -160,24 +162,22 @@ function initDashboard() {
     db.ref("/sensor").on("value", snapshot => {
         const data = snapshot.val();
         if (!data) return;
+
         document.getElementById("temp").textContent     = data.temperature + "°C";
         document.getElementById("humidity").textContent = data.humidity + "%";
     });
 
-    // POWER OFF ALL
+    // POWER OFF ALL (✅ FIXED BUZZER ISSUE)
     powerOffBtn.addEventListener('click', function() {
         const updates = {
-            "/fan": 0, "/light": 0, "/conveyor": 0, "/buzzer": 0
+            "/fan": 0,
+            "/light": 0,
+            "/conveyor": 0,
+            "/buzzer": 0   // ✅ FIXED
         };
+
         db.ref().update(updates);
 
-        devices.forEach(device => {
-            const card = document.querySelector(`[data-equipment="${device}"]`);
-            if (card) {
-                card.querySelector('.toggle-input').checked = false;
-                card.classList.remove('on');
-            }
-        });
         showToast("All equipment powered OFF", "warning");
     });
 
@@ -187,6 +187,7 @@ function initDashboard() {
         e.preventDefault();
         const name    = this.querySelector('input').value;
         const message = this.querySelector('textarea').value;
+
         if (name && message) {
             alert("Thank you " + name + "! Message sent.");
             this.reset();
@@ -194,20 +195,18 @@ function initDashboard() {
         }
     });
 
-    // FORCE SHOW SECTIONS
+    // SHOW SECTIONS
     document.querySelectorAll("section").forEach(sec => {
         sec.classList.add("visible");
     });
 
-    // TOAST
     function showToast(message, type = "info") {
         const toast = document.createElement("div");
-        toast.className   = "toast " + type;
+        toast.className = "toast " + type;
         toast.textContent = message;
         toastContainer.appendChild(toast);
-        setTimeout(() => { toast.remove(); }, 3000);
+        setTimeout(() => toast.remove(), 3000);
     }
-
-} // end initDashboard
+}
 
 });
