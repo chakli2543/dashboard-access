@@ -1,7 +1,7 @@
 document.addEventListener('DOMContentLoaded', function() {
 
 // ============================================================
-// FIREBASE CONFIG (UNCHANGED)
+// FIREBASE CONFIG
 // ============================================================
 const firebaseConfig = {
   apiKey: "AIzaSyD5a5n1j8aKxTHRfAfOOAdnXdSn8mkpGe8",
@@ -118,14 +118,16 @@ function getFriendlyError(code) {
 // ============================================================
 function initDashboard() {
 
-    const toggleInputs = document.querySelectorAll('.toggle-input');
-    const controlCards = document.querySelectorAll('.control-card');
+    const toggleInputs   = document.querySelectorAll('.toggle-input');
+    const controlCards   = document.querySelectorAll('.control-card');
     const toastContainer = document.getElementById('toastContainer');
-    const powerOffBtn = document.getElementById('powerOffBtn');
+    const powerOffBtn    = document.getElementById('powerOffBtn');
 
-    const devices = ["fan", "light", "conveyor", "buzzer"]; // ✅ FIXED
+    const devices = ["fan", "light", "conveyor", "buzzer"];
 
-    // CONTROL → FIREBASE
+    // --------------------------------------------------------
+    // CONTROL TOGGLES → FIREBASE
+    // --------------------------------------------------------
     toggleInputs.forEach((input, index) => {
         input.addEventListener('change', function() {
             const card   = controlCards[index];
@@ -144,44 +146,73 @@ function initDashboard() {
         });
     });
 
-    // FIREBASE → UI
+    // --------------------------------------------------------
+    // FIREBASE → CONTROL CARD UI
+    // --------------------------------------------------------
     devices.forEach(device => {
         db.ref("/" + device).on("value", snapshot => {
             const value = snapshot.val();
             const card  = document.querySelector(`[data-equipment="${device}"]`);
             if (!card) return;
 
-            const toggle = card.querySelector('.toggle-input');
+            const toggle   = card.querySelector('.toggle-input');
             toggle.checked = value === 1;
-
             card.classList.toggle('on', value === 1);
         });
     });
 
-    // SENSOR DATA
+    // --------------------------------------------------------
+    // FIREBASE → SENSOR DISPLAY (Temperature & Humidity)
+    // --------------------------------------------------------
     db.ref("/sensor").on("value", snapshot => {
         const data = snapshot.val();
         if (!data) return;
 
-        document.getElementById("temp").textContent     = data.temperature + "°C";
-        document.getElementById("humidity").textContent = data.humidity + "%";
+        if (data.temperature !== undefined)
+            document.getElementById("temp").textContent = data.temperature + "°C";
+
+        if (data.humidity !== undefined)
+            document.getElementById("humidity").textContent = data.humidity + "%";
     });
 
-    // POWER OFF ALL (✅ FIXED BUZZER ISSUE)
+    // --------------------------------------------------------
+    // FIREBASE → RESTRICTED AREA (IR Sensor)
+    // --------------------------------------------------------
+    db.ref("/sensor/ir").on("value", snapshot => {
+        const detected  = snapshot.val() === 1;
+        const statusEl  = document.getElementById("sensorStatus");
+        const alarmIcon = document.getElementById("alarmIcon");
+
+        if (detected) {
+            statusEl.textContent = "⚠️ Object detected in restricted area!";
+            statusEl.classList.add("alarm");
+            alarmIcon.classList.add("alarm-active");
+            showToast("⚠️ Object detected in restricted area!", "warning");
+        } else {
+            statusEl.textContent = "No motion detected";
+            statusEl.classList.remove("alarm");
+            alarmIcon.classList.remove("alarm-active");
+        }
+    });
+
+    // --------------------------------------------------------
+    // POWER OFF ALL
+    // --------------------------------------------------------
     powerOffBtn.addEventListener('click', function() {
         const updates = {
-            "/fan": 0,
-            "/light": 0,
+            "/fan":      0,
+            "/light":    0,
             "/conveyor": 0,
-            "/buzzer": 0   // ✅ FIXED
+            "/buzzer":   0
         };
 
         db.ref().update(updates);
-
         showToast("All equipment powered OFF", "warning");
     });
 
+    // --------------------------------------------------------
     // CONTACT FORM
+    // --------------------------------------------------------
     const contactForm = document.querySelector('.contact-form');
     contactForm.addEventListener('submit', function(e) {
         e.preventDefault();
@@ -195,11 +226,16 @@ function initDashboard() {
         }
     });
 
+    // --------------------------------------------------------
     // SHOW SECTIONS
+    // --------------------------------------------------------
     document.querySelectorAll("section").forEach(sec => {
         sec.classList.add("visible");
     });
 
+    // --------------------------------------------------------
+    // TOAST HELPER
+    // --------------------------------------------------------
     function showToast(message, type = "info") {
         const toast = document.createElement("div");
         toast.className = "toast " + type;
